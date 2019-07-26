@@ -20,9 +20,7 @@ jobs:
           keys:
             - v1-dependencies-example-{{ checksum "example/package.json" }}
             - v1-dependencies-example-
-      - run: |
-          yarn install
-          yarn install --cwd example
+      - run: yarn bootstrap
       - save_cache:
           key: v1-dependencies-{{ checksum "package.json" }}
           paths: node_modules
@@ -32,14 +30,14 @@ jobs:
       - persist_to_workspace:
           root: .
           paths: .
-  lint-and-flow:
+  lint-and-typecheck:
       <<: *defaults
       steps:
         - attach_workspace:
             at: ~/project
         - run: |
-            yarn run lint
-            yarn run flow
+            yarn lint
+            yarn typescript
   unit-tests:
       <<: *defaults
       steps:
@@ -55,6 +53,6 @@ workflows:
   build-and-test:
     jobs:
       - install-dependencies
-      - lint-and-flow:
+      - lint-and-typecheck:
           requires:
             - install-dependencies

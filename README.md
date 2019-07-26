@@ -16,7 +16,7 @@ A cross-platform Tab View component for React Native.
 - Supports both top and bottom tab bars
 - Follows Material Design spec
 - Highly customizable
-- Fully typed with [Flow](https://flow.org/)
+- Fully typed with [TypeScript](https://typescriptlang.org)
 
 ## Demo
 
@@ -27,20 +27,45 @@ A cross-platform Tab View component for React Native.
 Open a Terminal in the project root and run:
 
 ```sh
-yarn add react-native-tab-view@alpha
+yarn add react-native-tab-view
 ```
 
-If you are using Expo, you are done. Otherwise, continue to the next step.
+If you are using Expo, you are done. Otherwise, continue to the next steps.
 
-Install and link [`react-native-gesture-handler`](https://github.com/kmagiera/react-native-gesture-handler) and [`react-native-reanimated`](https://github.com/kmagiera/react-native-reanimated). To install and link them, run:
+First, install [`react-native-gesture-handler`](https://github.com/kmagiera/react-native-gesture-handler) and [`react-native-reanimated`](https://github.com/kmagiera/react-native-reanimated).
 
 ```sh
 yarn add react-native-reanimated react-native-gesture-handler
-react-native link react-native-reanimated
-react-native link react-native-gesture-handler
 ```
 
-_IMPORTANT:_ There are additional steps required for `react-native-gesture-handler` on Android after running `react-native link react-native-gesture-handler`. Check the [this guide](https://kmagiera.github.io/react-native-gesture-handler/docs/getting-started.html) to complete the installation.
+Next, we need to link these libraries. The steps depends on your React Native version:
+
+- **React Native 0.60 and higher**
+
+  On newer versions of React Native, [linking is automatic](https://github.com/react-native-community/cli/blob/master/docs/autolinking.md).
+
+  To complete the linking on iOS, make sure you have [Cocoapods](https://cocoapods.org/) installed. Then run:
+
+  ```sh
+  cd ios
+  pod install
+  cd ..
+  ```
+
+- **React Native 0.59 and lower**
+
+  If you're on an older React Native version, you need to manually link the dependencies. To do that, run:
+
+  ```sh
+  react-native link react-native-reanimated
+  react-native link react-native-gesture-handler
+  ```
+
+**IMPORTANT:** There are additional steps required for `react-native-gesture-handler` on Android after linking (for all React Native versions). Check the [this guide](https://kmagiera.github.io/react-native-gesture-handler/docs/getting-started.html) to complete the installation.
+
+**NOTE:** If you use Wix [`react-native-navigation`](https://github.com/wix/react-native-navigation) on Android, you need to wrap all your screens that uses `react-native-tab-view` with `gestureHandlerRootHOC` from `react-native-gesture-handler`. Refer [`react-native-gesture-handler`'s docs](https://kmagiera.github.io/react-native-gesture-handler/docs/getting-started.html#with-wix-react-native-navigation-https-githubcom-wix-react-native-navigation) for more details.
+
+We're done! Now you can build and run the app on your device/simulator.
 
 ## Quick Start
 
@@ -52,6 +77,7 @@ import { TabView, SceneMap } from 'react-native-tab-view';
 const FirstRoute = () => (
   <View style={[styles.scene, { backgroundColor: '#ff4081' }]} />
 );
+
 const SecondRoute = () => (
   <View style={[styles.scene, { backgroundColor: '#673ab7' }]} />
 );
@@ -106,7 +132,7 @@ The package exports a `TabView` component which is the one you'd use to render t
 
 Container component responsible for rendering and managing tabs. Follows material design styles by default.
 
-#### Example
+Basic usage look like this:
 
 ```js
 <TabView
@@ -193,6 +219,7 @@ Each scene receives the following props:
 
 - `route`: the current route rendered by the component
 - `jumpTo`: method to jump to other tabs, takes a `route.key` as it's argument
+- `position`: animated node which represents the current position
 
 The `jumpTo` method can be used to navigate to other tabs programmatically:
 
@@ -202,7 +229,7 @@ this.props.jumpTo('albums');
 
 All the scenes rendered with `SceneMap` are optimized using `React.PureComponent` and don't re-render when parent's props or states change. If you need more control over how your scenes update (e.g. - triggering a re-render even if the `navigationState` didn't change), use `renderScene` directly instead of using `SceneMap`.
 
-_IMPORTANT:_ **Do not** pass inline functions to `SceneMap`, for example, don't do the following:
+**IMPORTANT:** **Do not** pass inline functions to `SceneMap`, for example, don't do the following:
 
 ```js
 SceneMap({
@@ -212,6 +239,21 @@ SceneMap({
 ```
 
 Always define your components elsewhere in the top level of the file. If you pass inline functions, it'll re-create the component every render, which will cause the entire route to unmount and remount every change. It's very bad for performance and will also cause any local state to be lost.
+
+If you need to pass additional props, use a custom `renderScene` function:
+
+```js
+renderScene = ({ route }) => {
+  switch (route.key) {
+    case 'first':
+      return <FirstRoute foo={this.props.foo} />;
+    case 'second':
+      return <SecondRoute />;
+    default:
+      return null;
+  }
+};
+```
 
 ##### `renderTabBar`
 
@@ -235,24 +277,97 @@ renderTabBar = () => null;
 
 Position of the tab bar in the tab view. Possible values are `'top'` and `'bottom'`. Defaults to `'top'`.
 
+##### `lazy`
+
+Boolean indicating whether to lazily render the scenes. By default all scenes are rendered to provide a smoother swipe experience. But you might want to defer the rendering of unfocused scenes until the user sees them. To enable lazy rendering, set `lazy` to `true`.
+
+When you enable `lazy`, the unfocused screens will usually take some time to render when they come into focus. You can use the `renderLazyPlaceholder` prop to customize what the user sees during this short period.
+
+##### `lazyPreloadDistance`
+
+When `lazy` is enabled, you can specify how many adjacent routes should be preloaded with this prop. This value defaults to `0` which means lazy pages are loaded as they come into the viewport.
+
+##### `renderLazyPlaceholder`
+
+Callback which returns a custom React Element to render for routes that haven't been rendered yet. Receives an object containing the route as the argument. The `lazy` prop also needs to be enabled.
+
+This view is usually only shown for a split second. Keep it lightweight.
+
+By default, this renders `null`.
+
+##### `removeClippedSubviews`
+
+Boolean indicating whether to remove invisible views (such as unfocused screens) from the native view hierarchy to improve memory usage. Defaults to `false`.
+
+**Note**: Don't enable this on iOS where this is buggy and views don't re-appear.
+
+##### `keyboardDismissMode`
+
+String indicating whether the keyboard gets dismissed in response to a drag gesture. Possible values are:
+
+- `'auto'` (default): the keyboard is dismissed when the index changes.
+- `'on-drag'`: the keyboard is dismissed when a drag begins.
+- `'none'`: drags do not dismiss the keyboard.
+
 ##### `swipeEnabled`
 
 Boolean indicating whether to enable swipe gestures. Swipe gestures are enabled by default. Passing `false` will disable swipe gestures, but the user can still switch tabs by pressing the tab bar.
 
-##### `swipeDistanceThreshold`
+##### `swipeVelocityImpact`
 
-Minimum swipe distance which triggers a tab switch. By default, this is automatically determined based on the screen width.
+Determines how relevant is a velocity while calculating next position while swiping. Defaults to `0.2`.
 
-##### `swipeVelocityThreshold`
+##### `onSwipeStart`
 
-Minimum swipe velocity which triggers a tab switch. Defaults to `1200`.
+Callback which is called when the swipe gesture starts, i.e. the user touches the screen and moves it.
 
-##### `initialLayout`
+##### `onSwipeEnd`
+
+Callback which is called when the swipe gesture ends, i.e. the user lifts their finger from the screen after the swipe gesture.
+
+##### `timingConfig`
+
+Configuration object for the timing animation which occurs when tapping on tabs. Supported properties are:
+
+- `duration` (`number`)
+
+##### `springConfig`
+
+Configuration object for the spring animation which occurs after swiping. Supported properties are:
+
+- `damping` (`number`)
+- `mass` (`number`)
+- `stiffness` (`number`)
+- `restSpeedThreshold` (`number`)
+- `restDisplacementThreshold` (`number`)
+
+##### `springVelocityScale`
+
+Number for determining how meaningful is gesture velocity for calculating initial velocity of spring animation. Defaults to `0`.
+
+##### `initialLayout
 
 Object containing the initial height and width of the screens. Passing this will improve the initial rendering performance. For most apps, this is a good default:
 
 ```js
 { width: Dimensions.get('window').width }}
+```
+
+##### `position`
+
+Animated value to listen to the position updates. The passed position value will be kept in sync with the current position of the tabs. It's useful for accessing the animated value outside the tab view.
+
+```js
+position = new Animated.Value(0);
+
+render() {
+  return (
+    <TabView
+      position={this.position}
+      ...
+    />
+  );
+}
 ```
 
 ##### `sceneContainerStyle`
@@ -263,17 +378,29 @@ Style to apply to the view wrapping each screen. You can pass this to override s
 
 Style to apply to the tab view container.
 
+##### `gestureHandlerProps`
+
+An object with props to be passed to underlying [`PanGestureHandler`](https://kmagiera.github.io/react-native-gesture-handler/docs/handler-pan.html#properties). For example:
+
+```js
+gestureHandlerProps={{
+  maxPointers: 1,
+  waitFor: [someRef]
+}}
+```
+
 ### `TabBar`
 
-Material design themed tab bar. To pass props to the tab bar, you'd need to use the `renderTabBar` prop of `TabView` to render the `TabBar` and pass additional props.
+Material design themed tab bar. To customize the tab bar, you'd need to use the `renderTabBar` prop of `TabView` to render the `TabBar` and pass additional props.
 
-#### Example
+For example, to customize the indicator color and the tab bar background color, you can pass `indicatorStyle` and `style` props to the `TabBar` respectively:
 
 ```js
 renderTabBar={props =>
   <TabBar
     {...props}
-    indicatorStyle={{ backgroundColor: 'pink' }}
+    indicatorStyle={{ backgroundColor: 'white' }}
+    style={{ backgroundColor: 'pink' }}
   />
 }
 ```
@@ -376,21 +503,33 @@ Opacity for pressed tab (iOS and Android < 5.0 only).
 
 Boolean indicating whether to enable scrollable tabs.
 
+If you set `scrollEnabled` to `true`, you should also specify a `width` in `tabStyle` to improve the initial render.
+
 ##### `bounces`
 
 Boolean indicating whether the tab bar bounces when scrolling.
 
 ##### `tabStyle`
 
-Style to apply to the individual tabs in the tab bar.
+Style to apply to the individual tab items in the tab bar.
+
+By default, all tab items take up the same pre-calculated width based on the width of the container. If you want them to take their original width, you can specify `width: 'auto'` in `tabStyle`.
 
 ##### `indicatorStyle`
 
 Style to apply to the active indicator.
 
+##### `indicatorContainerStyle`
+
+Style to apply to the container view for the indicator.
+
 ##### `labelStyle`
 
 Style to apply to the tab item label.
+
+##### `contentContainerStyle`
+
+Style to apply to the inner container for tabs.
 
 ##### `style`
 
@@ -400,7 +539,7 @@ Style to apply to the tab bar container.
 
 ### Avoid unnecessary re-renders
 
-The `renderScene` function is called every time the index changes. If your `renderScene` function is expensive, it's good idea move each route to a separate component if they don't depend on the index, and apply `shouldComponentUpdate` in your route components to prevent unnecessary re-renders.
+The `renderScene` function is called every time the index changes. If your `renderScene` function is expensive, it's good idea move each route to a separate component if they don't depend on the index, and use `shouldComponentUpdate` or `React.memo` in your route components to prevent unnecessary re-renders.
 
 For example, instead of:
 
@@ -433,7 +572,7 @@ renderScene = ({ route }) => {
 };
 ```
 
-Where `<HomeComponent />` is a `PureComponent`:
+Where `<HomeComponent />` is a `PureComponent` if you're using class components:
 
 ```js
 export default class HomeComponent extends React.PureComponent {
@@ -446,6 +585,21 @@ export default class HomeComponent extends React.PureComponent {
     );
   }
 }
+```
+
+Or, wrapped in `React.memo` if you're using function components:
+
+```js
+function HomeComponent() {
+  return (
+    <View style={styles.page}>
+      <Avatar />
+      <NewsFeed />
+    </View>
+  );
+}
+
+export default React.memo(HomeComponent);
 ```
 
 ### Avoid one frame delay
@@ -483,14 +637,22 @@ renderScene = ({ route }) => {
 
 Nesting the `TabView` inside a vertical `ScrollView` will disable the optimizations in the `FlatList` components rendered inside the `TabView`. So avoid doing it if possible.
 
+### Use `lazy` and `renderLazyPlaceholder` props to render routes as needed
+
+The `lazy` option is disabled by default to provide a smoother tab switching experience, but you can enable it and provide a placeholder component for a better lazy loading experience. Enabling `lazy` can improve initial load performance by rendering routes only when they come into view. Refer the [prop reference](#lazy) for more details.
+
+### Use `removeClippedSubviews` to improve memory usage
+
+On Android, enabling `removeClippedSubviews` can improve memory usage. This option can also affect rendering performance negatively, so it is disabled by default. So make sure to test it when enabling it. Refer the [prop reference](#removeclippedsubviews) for more details.
+
 ## Contributing
 
 While developing, you can run the [example app](/example/README.md) to test your changes.
 
-Make sure your code passes Flow and ESLint. Run the following to verify:
+Make sure your code passes TypeScript and ESLint. Run the following to verify:
 
 ```sh
-yarn flow
+yarn typescript
 yarn lint
 ```
 
